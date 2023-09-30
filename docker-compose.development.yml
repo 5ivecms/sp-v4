@@ -1,0 +1,74 @@
+version: "3.9"
+
+services:
+  nginx:
+    ports:
+      - "${NGINX_PORT}:${NGINX_PORT}"
+    volumes:
+      - ./nginx/nginx.conf.development:/etc/nginx/conf.d/nginx.conf
+    networks:
+      - youtube-api-network
+      - youtube-api-external
+
+  server:
+    build:
+      target: development
+    volumes:
+      - ./server/src:/app/src
+    depends_on:
+      - db
+      - redis
+
+  client:
+    build:
+      target: development
+    volumes:
+      - ./client/src:/app/src
+    environment:
+      - WDS_SOCKET_PORT=0
+    stdin_open: true
+    tty: true
+
+  db:
+    container_name: youtube-api-db
+    image: postgres:14-alpine
+    restart: always
+    ports:
+      - ${POSTGRES_PORT}:5432
+    environment:
+      POSTGRES_PASSWORD: postgres
+    networks:
+      - youtube-api-network
+
+  dbadmin:
+    container_name: youtube-api-pgadmin
+    image: dpage/pgadmin4
+    restart: always
+    ports:
+      - ${PGADMIN_PORT}:80
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    networks:
+      - youtube-api-network
+
+  redis:
+    ports:
+      - ${REDIS_PORT}:${REDIS_PORT}
+
+  redis-commander:
+    container_name: youtube-api-redis-commander
+    image: ghcr.io/joeferner/redis-commander:latest
+    hostname: redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:${REDIS_PORT}
+    ports:
+      - "${REDIS_COMMANDER_PORT}:8081"
+    networks:
+      - youtube-api-network
+
+networks:
+  youtube-api-network:
+    driver: bridge
+  youtube-api-external:
+    name: youtube-api-external
